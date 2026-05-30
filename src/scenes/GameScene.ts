@@ -27,7 +27,6 @@ export class GameScene extends Phaser.Scene {
   private rightScenery!: Phaser.GameObjects.TileSprite;
 
   private scoreText!: Phaser.GameObjects.Text;
-  private bestText!: Phaser.GameObjects.Text;
   private speedText!: Phaser.GameObjects.Text;
   private flashOverlay!: Phaser.GameObjects.Rectangle;
 
@@ -63,7 +62,7 @@ export class GameScene extends Phaser.Scene {
     this.setupTimers();
   }
 
-  update(_time: number, delta: number): void {
+  override update(_time: number, delta: number): void {
     if (this.isGameOver) {
       return;
     }
@@ -143,7 +142,7 @@ export class GameScene extends Phaser.Scene {
   private createHud(): void {
     const best = this.getBestScore();
 
-    this.bestText = this.add
+    this.add
       .text(16, 16, `Best: ${best}`, {
         fontFamily: 'Segoe UI, system-ui, sans-serif',
         fontSize: '18px',

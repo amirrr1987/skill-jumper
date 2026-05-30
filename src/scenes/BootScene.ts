@@ -29,7 +29,7 @@ export class BootScene extends Phaser.Scene {
     this.generateCarTexture('road-tile', 390, 256, (g, w, h) => drawRoadTile(g, w, h));
     this.generateCarTexture('tree-left', 80, 120, (g, w, h) => drawTreeLeft(g, w, h));
     this.generateCarTexture('tree-right', 80, 120, (g, w, h) => drawTreeRight(g, w, h));
-    this.generateCarTexture('particle-spark', 8, 8, (g, w, h) => drawParticleSpark(g, w, h));
+    this.generateCarTexture('particle-spark', 8, 8, (g, size) => drawParticleSpark(g, size));
   }
 
   private generateCarTexture(
@@ -38,7 +38,7 @@ export class BootScene extends Phaser.Scene {
     height: number,
     draw: (g: Phaser.GameObjects.Graphics, width: number, height: number) => void,
   ): void {
-    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const g = this.make.graphics({ x: 0, y: 0 }, false);
     draw(g, width, height);
     g.generateTexture(key, width, height);
     g.destroy();

@@ -34,7 +34,7 @@ export class MenuScene extends Phaser.Scene {
     });
   }
 
-  update(_time: number, delta: number): void {
+  override update(_time: number, delta: number): void {
     const dt = delta / 1000;
     for (let i = this.backgroundCars.length - 1; i >= 0; i -= 1) {
       const car = this.backgroundCars[i];
