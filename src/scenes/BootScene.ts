@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import {
+  drawBullet,
   drawEnemyCar,
   drawParticleSpark,
   drawPlayerCar,
@@ -30,6 +31,7 @@ export class BootScene extends Phaser.Scene {
     this.generateCarTexture('tree-left', 80, 120, (g, w, h) => drawTreeLeft(g, w, h));
     this.generateCarTexture('tree-right', 80, 120, (g, w, h) => drawTreeRight(g, w, h));
     this.generateCarTexture('particle-spark', 8, 8, (g, size) => drawParticleSpark(g, size));
+    this.generateCarTexture('bullet', 8, 20, (g, w, h) => drawBullet(g, w, h));
   }
 
   private generateCarTexture(

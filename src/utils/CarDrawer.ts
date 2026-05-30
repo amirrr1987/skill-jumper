@@ -132,8 +132,23 @@ export function drawCar(
   drawHeadlights(g, width, height, headlightColor);
 }
 
+function drawRoofGun(g: Phaser.GameObjects.Graphics, width: number, height: number): void {
+  g.fillStyle(0x14213d, 1);
+  g.fillRoundedRect(width * 0.36, height * 0.4, width * 0.28, height * 0.11, 3);
+
+  g.fillStyle(0x023e8a, 1);
+  g.fillRoundedRect(width * 0.44, height * 0.14, width * 0.12, height * 0.3, 2);
+
+  g.fillStyle(0x0096c7, 1);
+  g.fillRoundedRect(width * 0.46, height * 0.08, width * 0.08, height * 0.1, 2);
+
+  g.fillStyle(0x90e0ef, 0.9);
+  g.fillCircle(width * 0.5, height * 0.06, width * 0.045);
+}
+
 export function drawPlayerCar(g: Phaser.GameObjects.Graphics, width: number, height: number): void {
   drawCar(g, width, height, PLAYER_CAR_STYLE);
+  drawRoofGun(g, width, height);
 }
 
 export function drawEnemyCar(
@@ -197,4 +212,15 @@ export function drawTreeRight(g: Phaser.GameObjects.Graphics, width: number, hei
 export function drawParticleSpark(g: Phaser.GameObjects.Graphics, size: number): void {
   g.fillStyle(0xffffff, 1);
   g.fillCircle(size / 2, size / 2, size / 2);
+}
+
+export function drawBullet(g: Phaser.GameObjects.Graphics, width: number, height: number): void {
+  g.fillStyle(0x48cae4, 0.45);
+  g.fillRoundedRect(0, 0, width, height, width / 2);
+
+  g.fillStyle(0xffffff, 1);
+  g.fillRoundedRect(width * 0.2, height * 0.12, width * 0.6, height * 0.76, width / 3);
+
+  g.fillStyle(0x90e0ef, 0.85);
+  g.fillCircle(width / 2, height * 0.18, width * 0.22);
 }

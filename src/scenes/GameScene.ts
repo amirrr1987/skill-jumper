@@ -1,14 +1,19 @@
 import Phaser from 'phaser';
 import {
   BEST_SCORE_KEY,
+  BULLET_HEIGHT,
+  BULLET_SPEED,
+  BULLET_WIDTH,
   CAR_HEIGHT,
   CAR_WIDTH,
   DIFFICULTY_INTERVAL_MS,
+  FIRE_RATE_MS,
   GAME_HEIGHT,
   GAME_WIDTH,
   HITBOX_SCALE,
   INITIAL_GAME_SPEED,
   INITIAL_SPAWN_INTERVAL,
+  KILL_SCORE_BONUS,
   LANE_CHANGE_DURATION_MS,
   LANES_X,
   MAX_GAME_SPEED,
@@ -22,17 +27,23 @@ import {
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Image;
   private enemies!: Phaser.Physics.Arcade.Group;
+  private bullets!: Phaser.Physics.Arcade.Group;
   private roadTile!: Phaser.GameObjects.TileSprite;
   private leftScenery!: Phaser.GameObjects.TileSprite;
   private rightScenery!: Phaser.GameObjects.TileSprite;
 
   private scoreText!: Phaser.GameObjects.Text;
+  private killsText!: Phaser.GameObjects.Text;
   private speedText!: Phaser.GameObjects.Text;
   private flashOverlay!: Phaser.GameObjects.Rectangle;
+  private muzzleFlash!: Phaser.GameObjects.Rectangle;
 
   private currentLane = 1;
   private isChangingLane = false;
   private isGameOver = false;
+  private lastFireTime = 0;
+  private kills = 0;
+  private bonusScore = 0;
 
   private gameSpeed = INITIAL_GAME_SPEED;
   private spawnInterval = INITIAL_SPAWN_INTERVAL;
@@ -55,6 +66,7 @@ export class GameScene extends Phaser.Scene {
     this.createWorld();
     this.createPlayer();
     this.createEnemiesGroup();
+    this.createBulletsGroup();
     this.createParticles();
     this.createHud();
     this.setupCollisions();
@@ -69,10 +81,12 @@ export class GameScene extends Phaser.Scene {
 
     const dt = delta / 1000;
     this.distance += this.gameSpeed * dt;
-    this.score = Math.floor(this.distance / 10);
+    this.score = Math.floor(this.distance / 10) + this.bonusScore;
+    this.muzzleFlash.setPosition(this.player.x, this.player.y - CAR_HEIGHT * 0.42);
     this.updateHud();
     this.scrollBackground(dt);
     this.recycleEnemies();
+    this.recycleBullets();
   }
 
   private resetState(): void {
@@ -83,6 +97,9 @@ export class GameScene extends Phaser.Scene {
     this.spawnInterval = INITIAL_SPAWN_INTERVAL;
     this.distance = 0;
     this.score = 0;
+    this.kills = 0;
+    this.bonusScore = 0;
+    this.lastFireTime = 0;
   }
 
   private createWorld(): void {
@@ -115,6 +132,19 @@ export class GameScene extends Phaser.Scene {
     body.setImmovable(true);
     body.setAllowGravity(false);
     this.fitHitbox(body);
+
+    this.muzzleFlash = this.add
+      .rectangle(this.player.x, this.player.y - CAR_HEIGHT * 0.42, 10, 10, 0x90e0ef, 0.9)
+      .setDepth(6)
+      .setVisible(false);
+  }
+
+  private createBulletsGroup(): void {
+    this.bullets = this.physics.add.group({
+      classType: Phaser.Physics.Arcade.Image,
+      maxSize: 32,
+      runChildUpdate: false,
+    });
   }
 
   private createEnemiesGroup(): void {
@@ -160,6 +190,15 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(1, 0)
       .setDepth(30);
 
+    this.killsText = this.add
+      .text(GAME_WIDTH / 2, 42, 'Kills: 0', {
+        fontFamily: 'Segoe UI, system-ui, sans-serif',
+        fontSize: '15px',
+        color: '#ffd60a',
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(30);
+
     this.speedText = this.add
       .text(GAME_WIDTH / 2, 16, 'Speed: 1', {
         fontFamily: 'Segoe UI, system-ui, sans-serif',
@@ -184,11 +223,24 @@ export class GameScene extends Phaser.Scene {
       undefined,
       this,
     );
+
+    this.physics.add.overlap(
+      this.bullets,
+      this.enemies,
+      (bullet, enemy) => {
+        this.handleBulletHit(bullet as Phaser.Physics.Arcade.Image, enemy as Phaser.Physics.Arcade.Image);
+      },
+      undefined,
+      this,
+    );
   }
 
   private setupInput(): void {
     this.input.keyboard?.on('keydown-LEFT', () => this.changeLane(-1));
     this.input.keyboard?.on('keydown-RIGHT', () => this.changeLane(1));
+    this.input.keyboard?.on('keydown-SPACE', () => this.shoot());
+    this.input.keyboard?.on('keydown-UP', () => this.shoot());
+    this.input.keyboard?.on('keydown-Z', () => this.shoot());
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       this.swipeStartX = pointer.x;
@@ -201,6 +253,11 @@ export class GameScene extends Phaser.Scene {
 
       if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
         this.changeLane(dx < 0 ? -1 : 1);
+        return;
+      }
+
+      if (pointer.y < GAME_HEIGHT * 0.55) {
+        this.shoot();
         return;
       }
 
@@ -278,6 +335,94 @@ export class GameScene extends Phaser.Scene {
     body.setOffset((CAR_WIDTH - hitW) / 2, (CAR_HEIGHT - hitH) / 2);
   }
 
+  private shoot(): void {
+    if (this.isGameOver) {
+      return;
+    }
+
+    const now = this.time.now;
+    if (now - this.lastFireTime < FIRE_RATE_MS) {
+      return;
+    }
+    this.lastFireTime = now;
+
+    const spawnY = this.player.y - CAR_HEIGHT * 0.45;
+    const bullet = this.bullets.get(this.player.x, spawnY, 'bullet') as Phaser.Physics.Arcade.Image | false;
+    if (!bullet) {
+      return;
+    }
+
+    bullet
+      .setActive(true)
+      .setVisible(true)
+      .setDisplaySize(BULLET_WIDTH, BULLET_HEIGHT)
+      .setPosition(this.player.x, spawnY)
+      .setDepth(6);
+
+    const body = bullet.body as Phaser.Physics.Arcade.Body;
+    body.enable = true;
+    body.setAllowGravity(false);
+    body.setVelocity(0, -BULLET_SPEED);
+    body.setSize(BULLET_WIDTH * 0.75, BULLET_HEIGHT * 0.75);
+    body.setOffset(
+      (BULLET_WIDTH - BULLET_WIDTH * 0.75) / 2,
+      (BULLET_HEIGHT - BULLET_HEIGHT * 0.75) / 2,
+    );
+
+    this.muzzleFlash.setPosition(this.player.x, spawnY + 6).setVisible(true).setAlpha(0.95).setScale(1);
+    this.tweens.add({
+      targets: this.muzzleFlash,
+      alpha: 0,
+      scaleX: 1.6,
+      scaleY: 1.6,
+      duration: 90,
+      onComplete: () => {
+        this.muzzleFlash.setVisible(false).setScale(1).setAlpha(0.95);
+      },
+    });
+  }
+
+  private despawnEnemy(enemy: Phaser.Physics.Arcade.Image): void {
+    enemy.setActive(false);
+    enemy.setVisible(false);
+    const enemyBody = enemy.body as Phaser.Physics.Arcade.Body;
+    enemyBody.stop();
+    enemyBody.enable = false;
+  }
+
+  private despawnBullet(bullet: Phaser.Physics.Arcade.Image): void {
+    bullet.setActive(false);
+    bullet.setVisible(false);
+    const body = bullet.body as Phaser.Physics.Arcade.Body;
+    body.stop();
+    body.enable = false;
+  }
+
+  private handleBulletHit(bullet: Phaser.Physics.Arcade.Image, enemy: Phaser.Physics.Arcade.Image): void {
+    if (this.isGameOver || !enemy.active || !bullet.active) {
+      return;
+    }
+
+    this.despawnBullet(bullet);
+    this.despawnEnemy(enemy);
+    this.kills += 1;
+    this.bonusScore += KILL_SCORE_BONUS;
+    this.explosionEmitter.explode(12, enemy.x, enemy.y);
+    this.updateHud();
+  }
+
+  private recycleBullets(): void {
+    const children = this.bullets.getChildren() as Phaser.Physics.Arcade.Image[];
+    for (const bullet of children) {
+      if (!bullet.active) {
+        continue;
+      }
+      if (bullet.y < -BULLET_HEIGHT) {
+        this.despawnBullet(bullet);
+      }
+    }
+  }
+
   private spawnEnemy(): void {
     if (this.isGameOver) {
       return;
@@ -340,6 +485,7 @@ export class GameScene extends Phaser.Scene {
 
   private updateHud(): void {
     this.scoreText.setText(`Score: ${this.score}`);
+    this.killsText.setText(`Kills: ${this.kills}`);
     const speedLevel = Math.floor((this.gameSpeed - INITIAL_GAME_SPEED) / SPEED_INCREMENT) + 1;
     this.speedText.setText(`Speed: ${speedLevel}`);
   }
@@ -354,12 +500,7 @@ export class GameScene extends Phaser.Scene {
     this.difficultyTimer.destroy();
 
     this.explosionEmitter.explode(30, this.player.x, this.player.y);
-
-    enemy.setActive(false);
-    enemy.setVisible(false);
-    const enemyBody = enemy.body as Phaser.Physics.Arcade.Body;
-    enemyBody.stop();
-    enemyBody.enable = false;
+    this.despawnEnemy(enemy);
 
     this.flashOverlay.setAlpha(0.45);
     this.tweens.add({

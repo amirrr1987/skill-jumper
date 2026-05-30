@@ -27,6 +27,12 @@ export const MIN_SPAWN_INTERVAL = 400;
 export const LANE_CHANGE_DURATION_MS = 150;
 export const HITBOX_SCALE = 0.7;
 
+export const BULLET_WIDTH = 8;
+export const BULLET_HEIGHT = 20;
+export const BULLET_SPEED = 680;
+export const FIRE_RATE_MS = 240;
+export const KILL_SCORE_BONUS = 15;
+
 export const BEST_SCORE_KEY = 'skillJumper_best';
 
 export const SCENE_KEYS = {
